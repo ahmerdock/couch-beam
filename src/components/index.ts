@@ -10,3 +10,4 @@ export { default as RemoteButton } from "./remote-button";
 export { default as ScreenTitle } from "./screen-title";
 export { default as ShortHeading } from "./short-heading";
 export { default as TabItem } from "./tab-item";
+export { default as Touchpad } from "./touchpad";

@@ -6,10 +6,16 @@ import Volume1 from "lucide-react-native/icons/volume-1";
 import Volume2 from "lucide-react-native/icons/volume-2";
 import VolumeX from "lucide-react-native/icons/volume-x";
 import { useUnistyles } from "react-native-unistyles";
-import { ActionCard, DPad, RemoteButton, ShortHeading } from "@/components";
+import {
+  ActionCard,
+  DPad,
+  RemoteButton,
+  ShortHeading,
+  Touchpad,
+} from "@/components";
 import { PAGE_TITLES } from "@/constants/routes";
 import { TabsLayout } from "@/layouts";
-import { APP_SHORTCUTS } from "./remote.data";
+import { APP_SHORTCUTS, PAD_MODES } from "./remote.data";
 import { remoteStyles } from "./remote.styles";
 import useRemote from "./use-remote";
 import ChevronLeft from "lucide-react-native/icons/chevron-left";
@@ -21,6 +27,8 @@ export default function Remote() {
     status,
     tvName,
     isConnected,
+    padMode,
+    setPadMode,
     searchText,
     setSearchText,
     pressDirection,
@@ -87,7 +95,36 @@ export default function Remote() {
         </View>
       ) : null}
 
-      <DPad onPress={pressDirection} disabled={!isConnected} />
+      <View style={remoteStyles.modeToggle} accessibilityRole="tablist">
+        {PAD_MODES.map((mode) => (
+          <TouchableOpacity
+            key={mode.id}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: padMode === mode.id }}
+            activeOpacity={0.7}
+            onPress={() => setPadMode(mode.id)}
+            style={[
+              remoteStyles.modeOption,
+              padMode === mode.id && remoteStyles.modeOptionActive,
+            ]}
+          >
+            <Text
+              style={[
+                remoteStyles.modeText,
+                padMode === mode.id && remoteStyles.modeTextActive,
+              ]}
+            >
+              {mode.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {padMode === "touchpad" ? (
+        <Touchpad onPress={pressDirection} disabled={!isConnected} />
+      ) : (
+        <DPad onPress={pressDirection} disabled={!isConnected} />
+      )}
 
       <View style={remoteStyles.row}>
         <RemoteButton

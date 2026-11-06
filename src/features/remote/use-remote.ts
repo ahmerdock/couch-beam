@@ -3,14 +3,26 @@ import { AccessibilityInfo } from "react-native";
 import Toast from "react-native-toast-message";
 import useTvRemote from "@/lib/tv-remote/use-tv-remote";
 import type { ITvSession } from "@/lib/tv-remote/tv-remote.interface";
-import type { IUseRemoteReturn } from "./remote.interface";
+import { mmkvStorage } from "@/theme/unistyles";
+import type { IUseRemoteReturn, PadMode } from "./remote.interface";
 import { runSessionCommand, textEditToKeys } from "./remote.utils";
 
+const PAD_MODE_STORAGE_KEY = "couch_beam_pad_mode";
 const LAUNCH_FAILED = "Couldn't open that app on the TV";
 
 export default function useRemote(): IUseRemoteReturn {
   const { status, tv, getSession, reconnect } = useTvRemote();
   const [searchText, setSearchTextState] = useState("");
+  const [padMode, setPadModeState] = useState<PadMode>(() =>
+    mmkvStorage.getString(PAD_MODE_STORAGE_KEY) === "touchpad"
+      ? "touchpad"
+      : "dpad",
+  );
+
+  const setPadMode = (mode: PadMode) => {
+    mmkvStorage.set(PAD_MODE_STORAGE_KEY, mode);
+    setPadModeState(mode);
+  };
 
   const retryConnection = useCallback(() => {
     reconnect().catch(() => undefined);
@@ -50,6 +62,8 @@ export default function useRemote(): IUseRemoteReturn {
     status,
     tvName: tv?.name ?? null,
     isConnected: status === "connected",
+    padMode,
+    setPadMode,
     searchText,
     setSearchText,
     pressDirection: (direction) =>

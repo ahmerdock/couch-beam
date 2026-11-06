@@ -31,6 +31,30 @@ export const remoteStyles = StyleSheet.create((theme) => ({
     width: 40,
     height: 40,
   },
+  modeToggle: {
+    flexDirection: "row",
+    alignSelf: "center",
+    padding: 4,
+    marginBottom: theme.gap(2),
+    borderRadius: 16,
+    backgroundColor: theme.colors.backgroundSecondary,
+  },
+  modeOption: {
+    paddingVertical: theme.gap(1),
+    paddingHorizontal: theme.gap(2.5),
+    borderRadius: 12,
+  },
+  modeOptionActive: {
+    backgroundColor: theme.colors.primary,
+  },
+  modeText: {
+    fontSize: 14,
+    fontFamily: theme.typography.body.bold,
+    color: theme.colors.textSecondary,
+  },
+  modeTextActive: {
+    color: theme.colors.onPrimary,
+  },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",

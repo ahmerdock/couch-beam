@@ -22,3 +22,8 @@ export const APP_SHORTCUTS = [
     appLink: "https://www.primevideo.com",
   },
 ] as const;
+
+export const PAD_MODES = [
+  { id: "dpad", label: "D-pad" },
+  { id: "touchpad", label: "Touchpad" },
+] as const;
