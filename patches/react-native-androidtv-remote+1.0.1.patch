@@ -1,0 +1,36 @@
+diff --git a/node_modules/react-native-androidtv-remote/dist/index.js b/node_modules/react-native-androidtv-remote/dist/index.js
+index f31bad3..a6e0404 100644
+--- a/node_modules/react-native-androidtv-remote/dist/index.js
++++ b/node_modules/react-native-androidtv-remote/dist/index.js
+@@ -4,7 +4,6 @@ Object.defineProperty(exports, "__esModule", {
+   value: true
+ });
+ exports.default = exports.RemoteKeyCode = exports.RemoteDirection = exports.AndroidRemote = void 0;
+-require("core-js/modules/es.promise.js");
+ var _CertificateGenerator = require("./certificate/CertificateGenerator.js");
+ var _PairingManager = require("./pairing/PairingManager.js");
+ var _RemoteManager = require("./remote/RemoteManager.js");
+diff --git a/node_modules/react-native-androidtv-remote/dist/pairing/PairingManager.js b/node_modules/react-native-androidtv-remote/dist/pairing/PairingManager.js
+index 69d3333..3c8acc6 100644
+--- a/node_modules/react-native-androidtv-remote/dist/pairing/PairingManager.js
++++ b/node_modules/react-native-androidtv-remote/dist/pairing/PairingManager.js
+@@ -7,7 +7,6 @@ exports.PairingManager = void 0;
+ require("core-js/modules/es.error.cause.js");
+ require("core-js/modules/es.json.stringify.js");
+ require("core-js/modules/es.parse-int.js");
+-require("core-js/modules/es.promise.js");
+ var _PairingMessageManager = require("./PairingMessageManager.js");
+ var _nodeForge = _interopRequireDefault(require("node-forge"));
+ var _buffer = require("buffer");
+diff --git a/node_modules/react-native-androidtv-remote/dist/remote/RemoteManager.js b/node_modules/react-native-androidtv-remote/dist/remote/RemoteManager.js
+index 1137978..89c23f8 100644
+--- a/node_modules/react-native-androidtv-remote/dist/remote/RemoteManager.js
++++ b/node_modules/react-native-androidtv-remote/dist/remote/RemoteManager.js
+@@ -5,7 +5,6 @@ Object.defineProperty(exports, "__esModule", {
+ });
+ exports.RemoteManager = void 0;
+ require("core-js/modules/es.json.stringify.js");
+-require("core-js/modules/es.promise.js");
+ var _RemoteMessageManager = require("./RemoteMessageManager.js");
+ var _events = _interopRequireDefault(require("events"));
+ var _buffer = require("buffer");
