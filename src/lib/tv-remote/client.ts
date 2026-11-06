@@ -1,5 +1,5 @@
 import { TvRemoteError } from "./tv-remote.errors";
-import { splitTextEdit } from "./text-keys";
+import { splitTextEdit } from "@/utils/text-edit";
 import type {
   IDiscoveredTv,
   IRemoteLibrary,

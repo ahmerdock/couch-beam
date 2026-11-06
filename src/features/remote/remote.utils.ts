@@ -1,4 +1,4 @@
-import { diffTextEdit } from "@/lib/tv-remote/text-keys";
+import { diffTextEdit } from "@/utils/text-edit";
 import type { ITvSession } from "@/lib/tv-remote/tv-remote.interface";
 
 // Runs one command against the live session. Returns false when there is no

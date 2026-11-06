@@ -3,8 +3,8 @@ import Tv from "lucide-react-native/icons/tv";
 import { Text, TouchableOpacity } from "react-native";
 import { ActionCard, PairingSheet, ShortHeading } from "@/components";
 import { PAGE_TITLES } from "@/constants/routes";
-import { TV_STATUS_LABELS } from "@/constants/tv-status";
 import { TabsLayout } from "@/layouts";
+import { TV_STATUS_LABELS } from "./home.data";
 import { homeStyles } from "./home.styles";
 import useHome from "./use-home";
 
