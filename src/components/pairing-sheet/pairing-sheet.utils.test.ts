@@ -1,5 +1,6 @@
 import {
   INITIAL_PAIRING_STATE,
+  isValidIpv4,
   pairingSheetReducer,
   sanitizePin,
 } from "./pairing-sheet.utils";
@@ -66,5 +67,41 @@ describe("pairingSheetReducer", () => {
 describe("sanitizePin", () => {
   it("uppercases and keeps only six hex characters", () => {
     expect(sanitizePin("ab12-cdz9")).toBe("AB12CD");
+  });
+});
+
+describe("manual entry", () => {
+  it("moves to the manual step and clears any error", () => {
+    const failed = pairingSheetReducer(INITIAL_PAIRING_STATE, {
+      type: "failed",
+      message: "Bad code",
+    });
+
+    const next = pairingSheetReducer(failed, { type: "manual" });
+
+    expect(next.step).toBe("manual");
+    expect(next.error).toBeNull();
+  });
+
+  it("returns to the picker with an error when pairing by address fails", () => {
+    let state = pairingSheetReducer(INITIAL_PAIRING_STATE, { type: "manual" });
+    state = pairingSheetReducer(state, { type: "select" });
+    state = pairingSheetReducer(state, { type: "failed", message: "No answer" });
+
+    expect(state.step).toBe("empty");
+    expect(state.error).toBe("No answer");
+  });
+});
+
+describe("isValidIpv4", () => {
+  it("accepts a normal address and trims spaces", () => {
+    expect(isValidIpv4(" 192.168.1.12 ")).toBe(true);
+  });
+
+  it("rejects too few parts, out-of-range parts, and non-numbers", () => {
+    expect(isValidIpv4("192.168.1")).toBe(false);
+    expect(isValidIpv4("192.168.1.256")).toBe(false);
+    expect(isValidIpv4("192.168.one.1")).toBe(false);
+    expect(isValidIpv4("")).toBe(false);
   });
 });

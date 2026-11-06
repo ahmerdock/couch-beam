@@ -46,9 +46,15 @@ export const TROUBLESHOOTING_ENTRIES = [
       "The code can take a moment, and the first attempt sometimes shows nothing. Close the sheet and try again. Check the code carefully: it uses the digits 0-9 and letters A-F.",
   },
   {
+    id: "switching-tvs",
+    title: "Switching between TVs",
+    answer:
+      "Only the TV you opened is connected at a time. On the Home tab, tap another TV to switch to it and open its controls. Add more TVs with Add a TV on the Home tab.",
+  },
+  {
     id: "commands-not-reaching",
     title: "Buttons do nothing",
     answer:
-      "Open the Remote tab and tap Reconnect if you see the unreachable message. Make sure the TV is awake, and that its remote service has not been turned off after a software update.",
+      "Open the TV from the Home tab and tap Reconnect if you see the unreachable message. Make sure the TV is awake, and that its remote service has not been turned off after a software update.",
   },
 ] as const;

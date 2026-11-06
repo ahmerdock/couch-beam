@@ -4,6 +4,7 @@ import type { IDiscoveredTv } from "@/lib/tv-remote/tv-remote.interface";
 import type { IPairingSheetProps } from "./pairing-sheet.interface";
 import {
   INITIAL_PAIRING_STATE,
+  isValidIpv4,
   pairingSheetReducer,
   PIN_PATTERN,
   sanitizePin,
@@ -20,6 +21,8 @@ export default function usePairingSheet(props: IPairingSheetProps) {
     INITIAL_PAIRING_STATE,
   );
   const [pin, setPinState] = useState("");
+  const [manualHost, setManualHost] = useState("");
+  const [manualName, setManualName] = useState("");
   const pinResolver = useRef<{
     resolve: (pin: string) => void;
     reject: (error: Error) => void;
@@ -69,6 +72,14 @@ export default function usePairingSheet(props: IPairingSheetProps) {
     );
   };
 
+  const submitManual = () => {
+    const host = manualHost.trim();
+
+    if (isValidIpv4(host)) {
+      selectTv({ host, name: manualName.trim() || `TV at ${host}` });
+    }
+  };
+
   const submitPin = () => {
     if (!PIN_PATTERN.test(pin) || !pinResolver.current) {
       return;
@@ -86,6 +97,13 @@ export default function usePairingSheet(props: IPairingSheetProps) {
     canSubmitPin: PIN_PATTERN.test(pin),
     setPin: (text: string) => setPinState(sanitizePin(text)),
     scan,
+    showManual: () => dispatch({ type: "manual" }),
+    manualHost,
+    manualName,
+    setManualHost,
+    setManualName,
+    canSubmitManual: isValidIpv4(manualHost),
+    submitManual,
     selectTv,
     submitPin,
     close,

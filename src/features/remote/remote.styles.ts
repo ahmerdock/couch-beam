@@ -25,6 +25,12 @@ export const remoteStyles = StyleSheet.create((theme) => ({
     fontFamily: theme.typography.body.bold,
     color: theme.colors.onPrimary,
   },
+  backButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 40,
+    height: 40,
+  },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",

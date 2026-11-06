@@ -9,6 +9,18 @@ export const INITIAL_PAIRING_STATE: IPairingSheetState = {
   error: null,
 };
 
+export const isValidIpv4 = (text: string) => {
+  const parts = text.trim().split(".");
+
+  return (
+    parts.length === 4 &&
+    parts.every(
+      (part) =>
+        /^\d{1,3}$/.test(part) && Number(part) >= 0 && Number(part) <= 255,
+    )
+  );
+};
+
 export const PIN_PATTERN = /^[0-9A-F]{6}$/;
 
 export const sanitizePin = (text: string) =>
@@ -30,6 +42,8 @@ export const pairingSheetReducer = (
         tvs: action.tvs,
         step: action.tvs.length > 0 ? "pick" : "empty",
       };
+    case "manual":
+      return { ...state, step: "manual", error: null };
     case "select":
       return { ...state, step: "connecting", error: null };
     case "pin-requested":

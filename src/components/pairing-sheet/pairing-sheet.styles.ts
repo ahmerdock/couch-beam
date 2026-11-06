@@ -43,6 +43,15 @@ export const pairingSheetStyles = StyleSheet.create((theme) => ({
     fontFamily: theme.typography.mono.medium,
     color: theme.colors.text,
   },
+  fieldInput: {
+    backgroundColor: theme.colors.backgroundSecondary,
+    borderRadius: 12,
+    paddingHorizontal: theme.gap(2),
+    paddingVertical: theme.gap(1.5),
+    fontSize: 16,
+    fontFamily: theme.typography.body.regular,
+    color: theme.colors.text,
+  },
   tvRow: {
     backgroundColor: theme.colors.backgroundSecondary,
     borderRadius: 12,

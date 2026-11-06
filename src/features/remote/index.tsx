@@ -12,7 +12,9 @@ import { TabsLayout } from "@/layouts";
 import { APP_SHORTCUTS } from "./remote.data";
 import { remoteStyles } from "./remote.styles";
 import useRemote from "./use-remote";
+import ChevronLeft from "lucide-react-native/icons/chevron-left";
 import Tv from "lucide-react-native/icons/tv";
+import { useRouter } from "expo-router";
 
 export default function Remote() {
   const {
@@ -28,13 +30,28 @@ export default function Remote() {
     retryConnection,
   } = useRemote();
   const { theme } = useUnistyles();
+  const router = useRouter();
+
+  const backButton = (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel="Back to your TVs"
+      activeOpacity={0.7}
+      onPress={() => router.back()}
+      style={remoteStyles.backButton}
+    >
+      <ChevronLeft size={28} color={theme.colors.primary} />
+    </TouchableOpacity>
+  );
 
   if (status === "unpaired") {
     return (
-      <TabsLayout titleProps={{ title: PAGE_TITLES.HOME }}>
+      <TabsLayout
+        titleProps={{ title: PAGE_TITLES.REMOTE, leading: backButton }}
+      >
         <ActionCard
           label="No TV paired yet"
-          description="Open Settings and tap Pair a TV to get started"
+          description="Go back to Home and tap Pair a TV to get started"
           icon={Tv}
         />
       </TabsLayout>
@@ -42,7 +59,9 @@ export default function Remote() {
   }
 
   return (
-    <TabsLayout titleProps={{ title: PAGE_TITLES.HOME }}>
+    <TabsLayout
+      titleProps={{ title: tvName ?? PAGE_TITLES.REMOTE, leading: backButton }}
+    >
       {status === "connecting" ? (
         <View style={remoteStyles.banner} accessibilityLiveRegion="polite">
           <Text style={remoteStyles.bannerText}>

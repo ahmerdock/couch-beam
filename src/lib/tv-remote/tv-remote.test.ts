@@ -1,14 +1,19 @@
 import { EventEmitter } from "events";
 import {
-  clearPairing,
-  loadPairing,
+  addPairing,
+  getActivePairing,
+  LEGACY_PAIRING_STORAGE_KEY,
+  loadPairingList,
   parseStoredPairing,
-  savePairing,
+  PAIRINGS_STORAGE_KEY,
+  removePairing,
+  savePairingList,
 } from "./certificate-storage";
 import { createTvRemoteClient } from "./client";
-import { isTvRemoteError } from "./tv-remote.errors";
+import { isTvRemoteError, TvRemoteError } from "./tv-remote.errors";
 import type {
   IKeyValueStore,
+  ITvSession,
   IRemoteLibrary,
   IRemoteLibraryInstance,
   IStoredPairing,
@@ -44,7 +49,17 @@ const createFakeLibrary = (behavior: FakeBehavior) => {
     sendPower = jest.fn();
     sendAppLink = jest.fn();
     sendText = jest.fn();
-    sendPairingCode = jest.fn((code: string) => this.resolveCode?.(code));
+    sendPairingCode = jest.fn((code: string) => {
+      // Like the real library: a wrong code resolves false and leaves start()
+      // pending, with no error event.
+      if (behavior === "bad-pin") {
+        return Promise.resolve(false);
+      }
+
+      this.resolveCode?.(code);
+
+      return Promise.resolve(true);
+    });
     stop = jest.fn(() => this.resolveCode?.(null));
     hasCertificate: boolean;
     resolveCode: ((code: string | null) => void) | null = null;
@@ -92,29 +107,106 @@ const createFakeLibrary = (behavior: FakeBehavior) => {
   return { library, sentKeys, instances };
 };
 
-describe("certificate storage", () => {
-  it("round-trips a saved pairing", () => {
+const mainTv: IStoredPairing = {
+  tv: { name: "Living Room TV", host: "192.168.1.20" },
+  certificate: { key: "KEY-A", cert: "CERT-A" },
+};
+const box: IStoredPairing = {
+  tv: { name: "CANDY Android TV DVB2K", host: "192.168.1.12" },
+  certificate: { key: "KEY-B", cert: "CERT-B" },
+};
+const emptyList = { activeHost: null, pairings: [] };
+
+describe("saved TV list storage", () => {
+  it("round-trips a saved list", () => {
     const store = createMemoryStore();
-    savePairing(store, pairing);
+    const list = addPairing(addPairing(emptyList, mainTv), box);
+    savePairingList(store, list);
 
-    expect(loadPairing(store)).toEqual(pairing);
+    expect(loadPairingList(store)).toEqual(list);
   });
 
-  it("returns null for a missing entry", () => {
-    expect(loadPairing(createMemoryStore())).toBeNull();
+  it("migrates the old single pairing into a one-item active list", () => {
+    const store = createMemoryStore();
+    store.set(LEGACY_PAIRING_STORAGE_KEY, JSON.stringify(pairing));
+
+    const list = loadPairingList(store);
+
+    expect(list.pairings).toEqual([pairing]);
+    expect(list.activeHost).toBe(pairing.tv.host);
+    expect(store.data.has(LEGACY_PAIRING_STORAGE_KEY)).toBe(false);
+    expect(store.data.has(PAIRINGS_STORAGE_KEY)).toBe(true);
   });
 
-  it("returns null for a corrupted entry instead of throwing", () => {
-    expect(parseStoredPairing("{not json")).toBeNull();
+  it("returns an empty list when nothing is stored", () => {
+    expect(loadPairingList(createMemoryStore())).toEqual(emptyList);
+  });
+
+  it("returns an empty list for a corrupted value instead of throwing", () => {
+    const store = createMemoryStore();
+    store.set(PAIRINGS_STORAGE_KEY, "{not json");
+
+    expect(loadPairingList(store)).toEqual(emptyList);
     expect(parseStoredPairing('{"tv":{"host":"x"}}')).toBeNull();
   });
 
-  it("clears the stored pairing", () => {
+  it("drops an entry with no certificate and keeps the rest", () => {
     const store = createMemoryStore();
-    savePairing(store, pairing);
-    clearPairing(store);
+    store.set(
+      PAIRINGS_STORAGE_KEY,
+      JSON.stringify({
+        activeHost: box.tv.host,
+        pairings: [mainTv, { tv: box.tv }],
+      }),
+    );
 
-    expect(loadPairing(store)).toBeNull();
+    const list = loadPairingList(store);
+
+    expect(list.pairings).toEqual([mainTv]);
+    expect(list.activeHost).toBe(mainTv.tv.host);
+  });
+
+  it("adds a TV with a new host and makes it active", () => {
+    const list = addPairing(addPairing(emptyList, mainTv), box);
+
+    expect(list.pairings).toHaveLength(2);
+    expect(list.activeHost).toBe(box.tv.host);
+  });
+
+  it("replaces the entry for an already saved host", () => {
+    const refreshed = { ...mainTv, certificate: { key: "NEW", cert: "NEW" } };
+    const list = addPairing(addPairing(emptyList, mainTv), refreshed);
+
+    expect(list.pairings).toEqual([refreshed]);
+  });
+
+  it("moves to the first remaining TV when the active one is removed", () => {
+    const third: IStoredPairing = {
+      tv: { name: "Bedroom", host: "192.168.1.30" },
+      certificate: { key: "K", cert: "C" },
+    };
+    const list = [mainTv, box, third].reduce(addPairing, emptyList);
+
+    const next = removePairing(list, third.tv.host);
+
+    expect(next.pairings.map((p) => p.tv.host)).toEqual([
+      mainTv.tv.host,
+      box.tv.host,
+    ]);
+    expect(next.activeHost).toBe(mainTv.tv.host);
+  });
+
+  it("keeps the active TV when a different one is removed", () => {
+    const list = addPairing(addPairing(emptyList, mainTv), box);
+
+    expect(removePairing(list, mainTv.tv.host).activeHost).toBe(box.tv.host);
+  });
+
+  it("empties the list when the last TV is removed", () => {
+    const list = addPairing(emptyList, mainTv);
+
+    expect(removePairing(list, mainTv.tv.host)).toEqual(emptyList);
+    expect(getActivePairing(emptyList)).toBeNull();
   });
 });
 
@@ -200,51 +292,204 @@ describe("tv remote client", () => {
   });
 });
 
+const createDeferredLibrary = () => {
+  const pending: { host: string; resolve: () => void }[] = [];
+  const sessions: Record<string, { close: jest.Mock }> = {};
+
+  const client = {
+    pair: jest.fn(),
+    connect: jest.fn(
+      (target: IStoredPairing) =>
+        new Promise<ITvSession>((resolve) => {
+          const session = {
+            sendDirection: jest.fn(),
+            sendVolume: jest.fn(),
+            sendPower: jest.fn(),
+            sendText: jest.fn(),
+            launchApp: jest.fn(),
+            close: jest.fn(),
+          };
+          sessions[target.tv.host] = session;
+          pending.push({
+            host: target.tv.host,
+            resolve: () => resolve(session),
+          });
+        }),
+    ),
+  };
+
+  return { client, pending, sessions };
+};
+
+const createStoreWith = (
+  list: IStoredPairing[],
+  library = "ready" as FakeBehavior,
+) => {
+  const storage = createMemoryStore();
+  savePairingList(storage, list.reduce(addPairing, emptyList));
+  const { library: fake } = createFakeLibrary(library);
+  return {
+    storage,
+    store: createTvRemoteStore(storage, createTvRemoteClient(fake)),
+  };
+};
+
 describe("tv remote store", () => {
-  it("starts unpaired with no stored pairing", () => {
+  it("starts unpaired with no saved TV", () => {
     const { library } = createFakeLibrary("ready");
     const store = createTvRemoteStore(
       createMemoryStore(),
       createTvRemoteClient(library),
     );
 
-    expect(store.getState()).toEqual({ status: "unpaired", tv: null });
+    expect(store.getState()).toEqual({ status: "unpaired", tv: null, tvs: [] });
   });
 
-  it("auto-connects from a stored certificate without a new PIN", async () => {
-    const { library } = createFakeLibrary("ready");
-    const storage = createMemoryStore();
-    savePairing(storage, pairing);
-    const store = createTvRemoteStore(storage, createTvRemoteClient(library));
+  it("auto-connects the active saved TV without a new PIN", async () => {
+    const { store } = createStoreWith([mainTv, box]);
 
     expect(store.getState().status).toBe("disconnected");
     await store.autoConnect();
 
-    expect(store.getState()).toEqual({ status: "connected", tv: pairing.tv });
+    expect(store.getState().status).toBe("connected");
+    expect(store.getState().tv).toEqual(box.tv);
+    expect(store.getState().tvs).toEqual([mainTv.tv, box.tv]);
     expect(store.getSession()).not.toBeNull();
   });
 
-  it("persists a pairing, then forgetting clears it and returns to unpaired", async () => {
-    const { library } = createFakeLibrary("ready");
+  it("carries a legacy single pairing in as the active TV", async () => {
     const storage = createMemoryStore();
+    storage.set(LEGACY_PAIRING_STORAGE_KEY, JSON.stringify(pairing));
+    const { library } = createFakeLibrary("ready");
     const store = createTvRemoteStore(storage, createTvRemoteClient(library));
 
-    await store.pair(pairing.tv, () => Promise.resolve("1A2B3C"));
-    expect(loadPairing(storage)).toEqual(pairing);
+    await store.autoConnect();
+
+    expect(store.getState()).toEqual({
+      status: "connected",
+      tv: pairing.tv,
+      tvs: [pairing.tv],
+    });
+  });
+
+  it("switching closes the first session and connects the second", async () => {
+    const { store } = createStoreWith([mainTv, box]);
+    await store.autoConnect();
+    const first = store.getSession();
+    const close = jest.spyOn(first as ITvSession, "close");
+
+    await store.switchTo(mainTv.tv.host);
+
+    expect(close).toHaveBeenCalled();
+    expect(store.getState().tv).toEqual(mainTv.tv);
     expect(store.getState().status).toBe("connected");
+    expect(store.getSession()).not.toBe(first);
+  });
 
-    store.forget();
+  it("keeps a TV that cannot be reached active and saved", async () => {
+    const { store } = createStoreWith([mainTv, box], "unreachable");
 
-    expect(loadPairing(storage)).toBeNull();
-    expect(store.getState()).toEqual({ status: "unpaired", tv: null });
+    await store.switchTo(mainTv.tv.host);
+
+    expect(store.getState().status).toBe("disconnected");
+    expect(store.getState().tv).toEqual(mainTv.tv);
+    expect(store.getState().tvs).toHaveLength(2);
+  });
+
+  it("discards a slow connect that resolves after switching away", async () => {
+    const { client, pending, sessions } = createDeferredLibrary();
+    const storage = createMemoryStore();
+    savePairingList(storage, [mainTv, box].reduce(addPairing, emptyList));
+    const store = createTvRemoteStore(storage, client);
+
+    const connectingBox = store.autoConnect();
+    const connectingMain = store.switchTo(mainTv.tv.host);
+    pending.find((p) => p.host === mainTv.tv.host)?.resolve();
+    await connectingMain;
+    pending.find((p) => p.host === box.tv.host)?.resolve();
+    await connectingBox;
+
+    expect(store.getState().tv).toEqual(mainTv.tv);
+    expect(store.getState().status).toBe("connected");
+    expect(store.getSession()).toBe(sessions[mainTv.tv.host]);
+    expect(sessions[box.tv.host].close).toHaveBeenCalled();
+  });
+
+  it("pairing a second TV keeps the first saved and makes the new one active", async () => {
+    const { store, storage } = createStoreWith([mainTv]);
+    await store.autoConnect();
+    const { library } = createFakeLibrary("ready");
+    const second = createTvRemoteStore(storage, createTvRemoteClient(library));
+
+    await second.pair(box.tv, () => Promise.resolve("1A2B3C"));
+
+    expect(second.getState().tv).toEqual(box.tv);
+    expect(second.getState().tvs).toEqual([mainTv.tv, box.tv]);
+    expect(loadPairingList(storage).pairings).toHaveLength(2);
+  });
+
+  it("a failed pairing for a second TV leaves the first connected", async () => {
+    const { library } = createFakeLibrary("ready");
+    const client = {
+      ...createTvRemoteClient(library),
+      pair: jest
+        .fn()
+        .mockRejectedValue(new TvRemoteError("pairing", "Bad Code")),
+    };
+    const storage = createMemoryStore();
+    savePairingList(storage, addPairing(emptyList, mainTv));
+    const store = createTvRemoteStore(storage, client);
+    await store.autoConnect();
+    const session = store.getSession();
+
+    await expect(
+      store.pair(box.tv, () => Promise.resolve("000000")),
+    ).rejects.toBeInstanceOf(TvRemoteError);
+
+    expect(store.getSession()).toBe(session);
+    expect(store.getState()).toEqual({
+      status: "connected",
+      tv: mainTv.tv,
+      tvs: [mainTv.tv],
+    });
+  });
+
+  it("forgetting the active TV connects the remaining one", async () => {
+    const { store, storage } = createStoreWith([mainTv, box]);
+    await store.autoConnect();
+
+    await store.forget(box.tv.host);
+
+    expect(store.getState().tv).toEqual(mainTv.tv);
+    expect(store.getState().status).toBe("connected");
+    expect(store.getState().tvs).toEqual([mainTv.tv]);
+    expect(loadPairingList(storage).pairings).toHaveLength(1);
+  });
+
+  it("forgetting the only TV returns to unpaired with no session", async () => {
+    const { store } = createStoreWith([mainTv]);
+    await store.autoConnect();
+
+    await store.forget(mainTv.tv.host);
+
+    expect(store.getState()).toEqual({ status: "unpaired", tv: null, tvs: [] });
     expect(store.getSession()).toBeNull();
   });
 
-  it("falls back to disconnected when the TV is unreachable", async () => {
-    const { library } = createFakeLibrary("unreachable");
-    const storage = createMemoryStore();
-    savePairing(storage, pairing);
-    const store = createTvRemoteStore(storage, createTvRemoteClient(library));
+  it("forgetting an inactive TV leaves the active connection alone", async () => {
+    const { store } = createStoreWith([mainTv, box]);
+    await store.autoConnect();
+    const session = store.getSession();
+
+    await store.forget(mainTv.tv.host);
+
+    expect(store.getSession()).toBe(session);
+    expect(store.getState().tv).toEqual(box.tv);
+    expect(store.getState().tvs).toEqual([box.tv]);
+  });
+
+  it("falls back to disconnected when the active TV is unreachable", async () => {
+    const { store } = createStoreWith([mainTv], "unreachable");
 
     await store.autoConnect();
 

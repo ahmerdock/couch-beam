@@ -129,8 +129,26 @@ export const createTvRemoteClient = (
 
     remote.on("secret", () => {
       requestPin().then(
-        (pin) => {
-          remote.sendPairingCode(pin);
+        async (pin) => {
+          // The library resolves false (and drops the connection) when the
+          // code does not match, without emitting an error, so we must fail
+          // the pairing ourselves or the caller waits forever.
+          let accepted: unknown = false;
+
+          try {
+            accepted = await remote.sendPairingCode(pin);
+          } catch {
+            accepted = false;
+          }
+
+          if (accepted === false) {
+            remote.stop();
+            cancelPairing(
+              failure(
+                "The TV did not accept that code. Check it and try again",
+              ),
+            );
+          }
         },
         () => {
           remote.stop();

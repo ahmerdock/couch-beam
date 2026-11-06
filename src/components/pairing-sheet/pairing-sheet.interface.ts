@@ -5,7 +5,13 @@ export interface IPairingSheetProps {
   onClose: () => void;
 }
 
-export type PairingStep = "scanning" | "pick" | "empty" | "pin" | "connecting";
+export type PairingStep =
+  | "scanning"
+  | "pick"
+  | "empty"
+  | "manual"
+  | "pin"
+  | "connecting";
 
 export interface IPairingSheetState {
   step: PairingStep;
@@ -16,6 +22,7 @@ export interface IPairingSheetState {
 export type PairingSheetAction =
   | { type: "scan-start" }
   | { type: "scan-done"; tvs: IDiscoveredTv[] }
+  | { type: "manual" }
   | { type: "select" }
   | { type: "pin-requested" }
   | { type: "pin-submitted" }

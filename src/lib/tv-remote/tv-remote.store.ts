@@ -1,12 +1,21 @@
-import { clearPairing, loadPairing, savePairing } from "./certificate-storage";
+import {
+  addPairing,
+  getActivePairing,
+  loadPairingList,
+  removePairing,
+  savePairingList,
+  setActiveHost,
+} from "./certificate-storage";
 import { createTvRemoteClient } from "./client";
 import { isTvRemoteError } from "./tv-remote.errors";
 import type {
   IDiscoveredTv,
   IKeyValueStore,
+  IPairingList,
   ITvRemoteClient,
   ITvRemoteState,
   ITvSession,
+  TvConnectionStatus,
 } from "./tv-remote.interface";
 
 type Listener = () => void;
@@ -18,8 +27,22 @@ export interface ITvRemoteStore {
   autoConnect: () => Promise<void>;
   reconnect: () => Promise<void>;
   pair: (tv: IDiscoveredTv, requestPin: () => Promise<string>) => Promise<void>;
-  forget: () => void;
+  switchTo: (host: string) => Promise<void>;
+  forget: (host: string) => Promise<void>;
 }
+
+const stateFor = (
+  list: IPairingList,
+  status: TvConnectionStatus,
+): ITvRemoteState => {
+  const active = getActivePairing(list);
+
+  return {
+    status: active ? status : "unpaired",
+    tv: active?.tv ?? null,
+    tvs: list.pairings.map((pairing) => pairing.tv),
+  };
+};
 
 export const createTvRemoteStore = (
   storage: IKeyValueStore,
@@ -27,7 +50,12 @@ export const createTvRemoteStore = (
 ): ITvRemoteStore => {
   const listeners = new Set<Listener>();
   let session: ITvSession | null = null;
-  let state: ITvRemoteState = { status: "unpaired", tv: null };
+  // Bumped whenever the active TV or its session may change, so a connect that
+  // finishes late knows it is stale and must not replace the live session.
+  let generation = 0;
+
+  const initial = loadPairingList(storage);
+  let state = stateFor(initial, "disconnected");
 
   const setState = (next: ITvRemoteState) => {
     state = next;
@@ -39,27 +67,36 @@ export const createTvRemoteStore = (
     session = null;
   };
 
-  const initial = loadPairing(storage);
-  if (initial) {
-    state = { status: "disconnected", tv: initial.tv };
-  }
+  const connectActive = async () => {
+    const list = loadPairingList(storage);
+    const pairing = getActivePairing(list);
+    const mine = ++generation;
 
-  const reconnect = async () => {
-    const pairing = loadPairing(storage);
+    closeSession();
 
     if (!pairing) {
-      setState({ status: "unpaired", tv: null });
+      setState(stateFor(list, "unpaired"));
       return;
     }
 
-    closeSession();
-    setState({ status: "connecting", tv: pairing.tv });
+    setState(stateFor(list, "connecting"));
 
     try {
-      session = await client.connect(pairing);
-      setState({ status: "connected", tv: pairing.tv });
+      const next = await client.connect(pairing);
+
+      if (mine !== generation) {
+        next.close();
+        return;
+      }
+
+      session = next;
+      setState(stateFor(loadPairingList(storage), "connected"));
     } catch (error) {
-      setState({ status: "disconnected", tv: pairing.tv });
+      if (mine !== generation) {
+        return;
+      }
+
+      setState(stateFor(loadPairingList(storage), "disconnected"));
       if (!isTvRemoteError(error)) {
         throw error;
       }
@@ -74,22 +111,70 @@ export const createTvRemoteStore = (
       return () => listeners.delete(listener);
     },
     autoConnect: async () => {
-      if (loadPairing(storage)) {
-        await reconnect();
+      if (getActivePairing(loadPairingList(storage))) {
+        await connectActive();
       }
     },
-    reconnect,
+    reconnect: connectActive,
     pair: async (tv, requestPin) => {
+      const reusesActiveSocket =
+        getActivePairing(loadPairingList(storage))?.tv.host === tv.host;
+
+      if (reusesActiveSocket) {
+        generation += 1;
+        closeSession();
+      }
+
+      let result;
+
+      try {
+        result = await client.pair(tv, requestPin);
+      } catch (error) {
+        if (reusesActiveSocket) {
+          connectActive().catch(() => undefined);
+        }
+        throw error;
+      }
+
+      generation += 1;
       closeSession();
-      const result = await client.pair(tv, requestPin);
-      savePairing(storage, result.pairing);
+      const list = addPairing(loadPairingList(storage), result.pairing);
+      savePairingList(storage, list);
       session = result.session;
-      setState({ status: "connected", tv: result.pairing.tv });
+      setState(stateFor(list, "connected"));
     },
-    forget: () => {
+    switchTo: async (host) => {
+      const list = loadPairingList(storage);
+
+      if (!list.pairings.some((pairing) => pairing.tv.host === host)) {
+        return;
+      }
+
+      if (list.activeHost === host && state.status === "connected") {
+        return;
+      }
+
+      savePairingList(storage, setActiveHost(list, host));
+      await connectActive();
+    },
+    forget: async (host) => {
+      const before = loadPairingList(storage);
+      const list = removePairing(before, host);
+      savePairingList(storage, list);
+
+      if (before.activeHost !== host) {
+        setState(stateFor(list, state.status));
+        return;
+      }
+
+      generation += 1;
       closeSession();
-      clearPairing(storage);
-      setState({ status: "unpaired", tv: null });
+
+      if (list.activeHost) {
+        await connectActive();
+      } else {
+        setState(stateFor(list, "unpaired"));
+      }
     },
   };
 };

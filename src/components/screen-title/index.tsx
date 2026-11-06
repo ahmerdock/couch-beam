@@ -3,13 +3,20 @@ import { IScreenTitleProps } from "./screen-title.interface";
 import { screenTitleStyles } from "./screen-title.styles";
 
 export default function ScreenTitle(props: IScreenTitleProps) {
-  const { title, children } = props;
+  const { title, leading, children } = props;
 
   return (
     <View style={screenTitleStyles.container}>
-      <Text accessibilityRole="header" style={screenTitleStyles.title}>
-        {title}
-      </Text>
+      <View style={screenTitleStyles.left}>
+        {leading}
+        <Text
+          accessibilityRole="header"
+          numberOfLines={1}
+          style={screenTitleStyles.title}
+        >
+          {title}
+        </Text>
+      </View>
       {children}
     </View>
   );

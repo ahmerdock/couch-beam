@@ -18,6 +18,11 @@ export interface IStoredPairing {
   certificate: IStoredCertificate;
 }
 
+export interface IPairingList {
+  activeHost: string | null;
+  pairings: IStoredPairing[];
+}
+
 export type TvDirection =
   | "up"
   | "down"
@@ -55,6 +60,7 @@ export type TvConnectionStatus =
 export interface ITvRemoteState {
   status: TvConnectionStatus;
   tv: IPairedTv | null;
+  tvs: IPairedTv[];
 }
 
 export interface IKeyValueStore {
