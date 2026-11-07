@@ -14,6 +14,17 @@ describe("tv remote client", () => {
     expect(requestPin).not.toHaveBeenCalled();
   });
 
+  it("tells the session owner when the TV unpairs after ready", async () => {
+    const { library, instances } = createFakeLibrary("ready");
+    const session = await createTvRemoteClient(library).connect(pairing);
+    const lost = jest.fn();
+
+    session.onLost?.(lost);
+    instances[0].emit("unpaired");
+
+    expect(lost).toHaveBeenCalledTimes(1);
+  });
+
   it("pairs with a PIN and returns a certificate to persist", async () => {
     const { library, instances } = createFakeLibrary("ready");
     const client = createTvRemoteClient(library);

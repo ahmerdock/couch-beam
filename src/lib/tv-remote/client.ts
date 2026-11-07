@@ -42,6 +42,10 @@ const createSession = (
     }
   };
 
+  const lostListeners = new Set<() => void>();
+
+  remote.on("unpaired", () => lostListeners.forEach((listener) => listener()));
+
   return {
     sendDirection: (direction) => press(DIRECTION_KEYS[direction]),
     sendVolume: (action) => press(VOLUME_KEYS[action]),
@@ -59,7 +63,13 @@ const createSession = (
     launchApp: (appLink) => {
       remote.sendAppLink(appLink);
     },
-    close: () => remote.stop(),
+    onLost: (listener) => {
+      lostListeners.add(listener);
+    },
+    close: () => {
+      lostListeners.clear();
+      remote.stop();
+    },
   };
 };
 

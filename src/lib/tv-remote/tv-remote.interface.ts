@@ -40,6 +40,8 @@ export interface ITvSession {
   sendPower: () => void;
   sendText: (text: string) => void;
   launchApp: (appLink: string) => void;
+  // Fires when the TV drops or revokes the session after it was ready.
+  onLost?: (listener: () => void) => void;
   close: () => void;
 }
 

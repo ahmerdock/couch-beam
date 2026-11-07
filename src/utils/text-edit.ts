@@ -23,16 +23,22 @@ export const splitTextEdit = (edit: string): ITextSegment[] => {
 };
 
 // Length of the common prefix, so a text field edit becomes backspaces + new text.
+// Compared by code point, so an emoji (two UTF-16 units) is one backspace.
 export const diffTextEdit = (previous: string, next: string) => {
+  const before = Array.from(previous);
+  const after = Array.from(next);
   let shared = 0;
 
   while (
-    shared < previous.length &&
-    shared < next.length &&
-    previous[shared] === next[shared]
+    shared < before.length &&
+    shared < after.length &&
+    before[shared] === after[shared]
   ) {
     shared += 1;
   }
 
-  return { deleteCount: previous.length - shared, insert: next.slice(shared) };
+  return {
+    deleteCount: before.length - shared,
+    insert: after.slice(shared).join(""),
+  };
 };

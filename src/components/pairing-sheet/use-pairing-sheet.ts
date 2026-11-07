@@ -28,12 +28,19 @@ export default function usePairingSheet(props: IPairingSheetProps) {
     reject: (error: Error) => void;
   } | null>(null);
 
+  const scanId = useRef(0);
+
   const scan = useCallback(() => {
+    const mine = ++scanId.current;
+    const finish = (tvs: IDiscoveredTv[]) => {
+      // A scan superseded by a newer one, or by pairing, must not repaint.
+      if (mine === scanId.current) {
+        dispatch({ type: "scan-done", tvs });
+      }
+    };
+
     dispatch({ type: "scan-start" });
-    discover().then(
-      (tvs) => dispatch({ type: "scan-done", tvs }),
-      () => dispatch({ type: "scan-done", tvs: [] }),
-    );
+    discover().then(finish, () => finish([]));
   }, [discover]);
 
   useEffect(() => {
@@ -43,6 +50,7 @@ export default function usePairingSheet(props: IPairingSheetProps) {
   }, [visible, scan]);
 
   const close = () => {
+    scanId.current += 1;
     pinResolver.current?.reject(new Error("closed"));
     pinResolver.current = null;
     setPinState("");
@@ -50,6 +58,7 @@ export default function usePairingSheet(props: IPairingSheetProps) {
   };
 
   const selectTv = (tv: IDiscoveredTv) => {
+    scanId.current += 1;
     dispatch({ type: "select" });
     setPinState("");
 

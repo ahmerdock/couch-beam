@@ -67,6 +67,19 @@ export const createTvRemoteStore = (
     session = null;
   };
 
+  // The TV can drop or revoke a live session; without this the store would
+  // keep reporting "connected" and every key press would go nowhere.
+  const watchSession = (watched: ITvSession, mine: number) => {
+    watched.onLost?.(() => {
+      if (mine !== generation || session !== watched) {
+        return;
+      }
+
+      closeSession();
+      setState(stateFor(loadPairingList(storage), "disconnected"));
+    });
+  };
+
   const connectActive = async () => {
     const list = loadPairingList(storage);
     const pairing = getActivePairing(list);
@@ -90,6 +103,7 @@ export const createTvRemoteStore = (
       }
 
       session = next;
+      watchSession(next, mine);
       setState(stateFor(loadPairingList(storage), "connected"));
     } catch (error) {
       if (mine !== generation) {
@@ -141,6 +155,7 @@ export const createTvRemoteStore = (
       const list = addPairing(loadPairingList(storage), result.pairing);
       savePairingList(storage, list);
       session = result.session;
+      watchSession(result.session, generation);
       setState(stateFor(list, "connected"));
     },
     switchTo: async (host) => {

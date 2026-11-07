@@ -37,6 +37,10 @@ export const pairingSheetReducer = (
     case "scan-start":
       return { ...state, step: "scanning", error: null };
     case "scan-done":
+      if (state.step !== "scanning") {
+        return state;
+      }
+
       return {
         ...state,
         tvs: action.tvs,
