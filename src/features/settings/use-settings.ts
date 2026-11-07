@@ -1,7 +1,7 @@
-import { AccessibilityInfo, Linking } from "react-native";
-import Toast from "react-native-toast-message";
+import { Linking } from "react-native";
 import { UnistylesRuntime, useUnistyles } from "react-native-unistyles";
 import { mmkvStorage, THEME_STORAGE_KEY } from "@/theme/unistyles";
+import { notify } from "@/utils/notify";
 import type { IUseSettingsReturn } from "./settings.interface";
 
 export default function useSettings(): IUseSettingsReturn {
@@ -18,8 +18,7 @@ export default function useSettings(): IUseSettingsReturn {
     try {
       await Linking.openURL(url);
     } catch {
-      Toast.show({ type: "error", text1: "Couldn't open the link" });
-      AccessibilityInfo.announceForAccessibility("Couldn't open the link");
+      notify("error", "Couldn't open the link");
     }
   };
 

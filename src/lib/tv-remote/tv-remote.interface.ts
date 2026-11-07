@@ -3,10 +3,7 @@ export interface IDiscoveredTv {
   host: string;
 }
 
-export interface IPairedTv {
-  name: string;
-  host: string;
-}
+export type IPairedTv = IDiscoveredTv;
 
 export interface IStoredCertificate {
   key: string;

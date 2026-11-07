@@ -12,6 +12,30 @@ const EMPTY_LIST: IPairingList = { activeHost: null, pairings: [] };
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
 
+const validatePairing = (parsed: unknown): IStoredPairing | null => {
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+
+  const { tv, certificate } = parsed as Partial<IStoredPairing>;
+
+  if (
+    !tv ||
+    !certificate ||
+    !isNonEmptyString(tv.host) ||
+    !isNonEmptyString(tv.name) ||
+    !isNonEmptyString(certificate.key) ||
+    !isNonEmptyString(certificate.cert)
+  ) {
+    return null;
+  }
+
+  return {
+    tv: { host: tv.host, name: tv.name },
+    certificate: { key: certificate.key, cert: certificate.cert },
+  };
+};
+
 export const parseStoredPairing = (
   raw: string | undefined,
 ): IStoredPairing | null => {
@@ -20,29 +44,7 @@ export const parseStoredPairing = (
   }
 
   try {
-    const parsed: unknown = JSON.parse(raw);
-
-    if (!parsed || typeof parsed !== "object") {
-      return null;
-    }
-
-    const { tv, certificate } = parsed as Partial<IStoredPairing>;
-
-    if (
-      !tv ||
-      !certificate ||
-      !isNonEmptyString(tv.host) ||
-      !isNonEmptyString(tv.name) ||
-      !isNonEmptyString(certificate.key) ||
-      !isNonEmptyString(certificate.cert)
-    ) {
-      return null;
-    }
-
-    return {
-      tv: { host: tv.host, name: tv.name },
-      certificate: { key: certificate.key, cert: certificate.cert },
-    };
+    return validatePairing(JSON.parse(raw));
   } catch {
     return null;
   }
@@ -58,7 +60,7 @@ const parsePairingList = (raw: string): IPairingList => {
 
     const { activeHost, pairings } = parsed as Partial<IPairingList>;
     const valid = (Array.isArray(pairings) ? pairings : []).flatMap((item) => {
-      const pairing = parseStoredPairing(JSON.stringify(item));
+      const pairing = validatePairing(item);
       return pairing ? [pairing] : [];
     });
     const active = valid.some((pairing) => pairing.tv.host === activeHost)

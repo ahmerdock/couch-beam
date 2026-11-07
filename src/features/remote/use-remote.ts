@@ -1,9 +1,8 @@
 import { useCallback, useState } from "react";
-import { AccessibilityInfo } from "react-native";
-import Toast from "react-native-toast-message";
 import useTvRemote from "@/lib/tv-remote/use-tv-remote";
 import type { ITvSession } from "@/lib/tv-remote/tv-remote.interface";
 import { mmkvStorage } from "@/theme/unistyles";
+import { notify } from "@/utils/notify";
 import type { IUseRemoteReturn, PadMode } from "./remote.interface";
 import { runSessionCommand, textEditToKeys } from "./remote.utils";
 
@@ -43,8 +42,7 @@ export default function useRemote(): IUseRemoteReturn {
 
   const launchApp = (appLink: string) => {
     if (!run((session) => session.launchApp(appLink))) {
-      Toast.show({ type: "error", text1: LAUNCH_FAILED });
-      AccessibilityInfo.announceForAccessibility(LAUNCH_FAILED);
+      notify("error", LAUNCH_FAILED);
     }
   };
 
