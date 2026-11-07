@@ -95,6 +95,24 @@ export const loadPairingList = (store: IKeyValueStore): IPairingList => {
   return migrated;
 };
 
+// Moves saved pairings (which hold TLS private keys) out of a plain store.
+// An existing entry in the destination wins, so a retry never overwrites it.
+export const migratePairings = (from: IKeyValueStore, to: IKeyValueStore) => {
+  [PAIRINGS_STORAGE_KEY, LEGACY_PAIRING_STORAGE_KEY].forEach((key) => {
+    const value = from.getString(key);
+
+    if (value === undefined) {
+      return;
+    }
+
+    if (to.getString(key) === undefined) {
+      to.set(key, value);
+    }
+
+    from.remove(key);
+  });
+};
+
 export const savePairingList = (store: IKeyValueStore, list: IPairingList) => {
   store.set(PAIRINGS_STORAGE_KEY, JSON.stringify(list));
 };

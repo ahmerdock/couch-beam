@@ -200,11 +200,11 @@ export const getTvRemoteStore = (): ITvRemoteStore => {
   if (!singleton) {
     // Required lazily so tests of the store factory never load native MMKV or the TLS library.
     /* eslint-disable @typescript-eslint/no-require-imports */
-    const { mmkvStorage } = require("@/theme/unistyles");
+    const { createSecurePairingStorage } = require("./secure-storage");
     const { remoteLibrary } = require("./remote-library");
     /* eslint-enable @typescript-eslint/no-require-imports */
     singleton = createTvRemoteStore(
-      mmkvStorage,
+      createSecurePairingStorage(),
       createTvRemoteClient(remoteLibrary),
     );
   }

@@ -193,4 +193,99 @@ describe("tv remote store", () => {
 
     expect(store.getState().status).toBe("disconnected");
   });
+
+  it("ignores a switch to a TV that is not saved", async () => {
+    const { store } = createStoreWith([mainTv]);
+    await store.autoConnect();
+    const session = store.getSession();
+
+    await store.switchTo("10.0.0.99");
+
+    expect(store.getSession()).toBe(session);
+    expect(store.getState().tv).toEqual(mainTv.tv);
+  });
+
+  it("does not reconnect when switching to the TV that is already connected", async () => {
+    const { store } = createStoreWith([mainTv]);
+    await store.autoConnect();
+    const session = store.getSession();
+
+    await store.switchTo(mainTv.tv.host);
+
+    expect(store.getSession()).toBe(session);
+  });
+
+  it("reconnects from disconnected", async () => {
+    const { store } = createStoreWith([mainTv]);
+
+    await store.reconnect();
+
+    expect(store.getState().status).toBe("connected");
+    expect(store.getSession()).not.toBeNull();
+  });
+
+  it("re-pairing the connected TV replaces its session", async () => {
+    const { store } = createStoreWith([mainTv]);
+    await store.autoConnect();
+    const first = store.getSession();
+
+    await store.pair(mainTv.tv, () => Promise.resolve("1A2B3C"));
+
+    expect(store.getSession()).not.toBe(first);
+    expect(store.getState().status).toBe("connected");
+  });
+
+  it("a failed re-pair of the connected TV reconnects with the saved certificate", async () => {
+    const { library } = createFakeLibrary("ready");
+    const real = createTvRemoteClient(library);
+    const client = {
+      ...real,
+      pair: jest
+        .fn()
+        .mockRejectedValue(new TvRemoteError("pairing", "Bad Code")),
+    };
+    const storage = createMemoryStore();
+    savePairingList(storage, addPairing(emptyList, mainTv));
+    const store = createTvRemoteStore(storage, client);
+    await store.autoConnect();
+    const first = store.getSession();
+    const close = jest.spyOn(first as ITvSession, "close");
+
+    await expect(
+      store.pair(mainTv.tv, () => Promise.resolve("000000")),
+    ).rejects.toBeInstanceOf(TvRemoteError);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(close).toHaveBeenCalled();
+    expect(store.getState().status).toBe("connected");
+    expect(store.getSession()).not.toBe(first);
+  });
+
+  it("marks the TV disconnected when the live session is lost", async () => {
+    let lose: () => void = () => undefined;
+    const session: ITvSession = {
+      sendDirection: jest.fn(),
+      sendVolume: jest.fn(),
+      sendPower: jest.fn(),
+      sendText: jest.fn(),
+      launchApp: jest.fn(),
+      onLost: (listener) => {
+        lose = listener;
+      },
+      close: jest.fn(),
+    };
+    const storage = createMemoryStore();
+    savePairingList(storage, addPairing(emptyList, mainTv));
+    const store = createTvRemoteStore(storage, {
+      pair: jest.fn(),
+      connect: jest.fn().mockResolvedValue(session),
+    });
+    await store.autoConnect();
+
+    lose();
+
+    expect(store.getState().status).toBe("disconnected");
+    expect(store.getSession()).toBeNull();
+    expect(session.close).toHaveBeenCalled();
+  });
 });

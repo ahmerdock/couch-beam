@@ -24,7 +24,12 @@ export const createMemoryStore = (): IKeyValueStore & {
   };
 };
 
-export type FakeBehavior = "ready" | "bad-pin" | "unreachable";
+export type FakeBehavior =
+  | "ready"
+  | "bad-pin"
+  | "unreachable"
+  | "refused"
+  | "no-certificate";
 
 export const createFakeLibrary = (behavior: FakeBehavior) => {
   const sentKeys: number[] = [];
@@ -56,12 +61,16 @@ export const createFakeLibrary = (behavior: FakeBehavior) => {
     }
 
     getCertificate() {
-      return { key: "KEY", cert: "CERT" };
+      return behavior === "no-certificate" ? {} : { key: "KEY", cert: "CERT" };
     }
 
     async start() {
       if (behavior === "unreachable") {
         throw new Error("ECONNREFUSED");
+      }
+
+      if (behavior === "refused") {
+        return false;
       }
 
       if (!this.hasCertificate) {

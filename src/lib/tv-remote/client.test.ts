@@ -79,4 +79,44 @@ describe("tv remote client", () => {
     expect(instances[0].sendText).toHaveBeenCalledWith("hi");
     expect(sentKeys).toEqual([21, 67]);
   });
+
+  it("sends power, app links, volume keys and stops the library", async () => {
+    const { library, instances, sentKeys } = createFakeLibrary("ready");
+    library.keyCodes.KEYCODE_VOLUME_UP = 24;
+    const session = await createTvRemoteClient(library).connect(pairing);
+
+    session.sendPower();
+    session.launchApp("https://www.youtube.com");
+    session.sendVolume("up");
+    session.close();
+
+    expect(instances[0].sendPower).toHaveBeenCalledTimes(1);
+    expect(instances[0].sendAppLink).toHaveBeenCalledWith(
+      "https://www.youtube.com",
+    );
+    expect(sentKeys).toEqual([24]);
+    expect(instances[0].stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails the connection when the TV declines to start", async () => {
+    const { library, instances } = createFakeLibrary("refused");
+
+    const error = await createTvRemoteClient(library)
+      .connect(pairing)
+      .catch((e: unknown) => e);
+
+    expect(isTvRemoteError(error, "connection")).toBe(true);
+    expect(instances[0].stop).toHaveBeenCalled();
+  });
+
+  it("fails pairing when the TV returns no certificate", async () => {
+    const { library, instances } = createFakeLibrary("no-certificate");
+
+    const error = await createTvRemoteClient(library)
+      .pair(pairing.tv, () => Promise.resolve("1A2B3C"))
+      .catch((e: unknown) => e);
+
+    expect(isTvRemoteError(error, "pairing")).toBe(true);
+    expect(instances[0].stop).toHaveBeenCalled();
+  });
 });

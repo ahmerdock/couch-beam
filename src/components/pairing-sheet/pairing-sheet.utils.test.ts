@@ -18,6 +18,16 @@ describe("pairingSheetReducer", () => {
     expect(next.tvs).toEqual([tv]);
   });
 
+  it("ignores a scan result that arrives after pairing has started", () => {
+    const pairing = pairingSheetReducer(INITIAL_PAIRING_STATE, {
+      type: "select",
+    });
+
+    expect(pairingSheetReducer(pairing, { type: "scan-done", tvs: [tv] })).toBe(
+      pairing,
+    );
+  });
+
   it("shows the empty state when a scan finds nothing", () => {
     const next = pairingSheetReducer(INITIAL_PAIRING_STATE, {
       type: "scan-done",
@@ -86,7 +96,10 @@ describe("manual entry", () => {
   it("returns to the picker with an error when pairing by address fails", () => {
     let state = pairingSheetReducer(INITIAL_PAIRING_STATE, { type: "manual" });
     state = pairingSheetReducer(state, { type: "select" });
-    state = pairingSheetReducer(state, { type: "failed", message: "No answer" });
+    state = pairingSheetReducer(state, {
+      type: "failed",
+      message: "No answer",
+    });
 
     expect(state.step).toBe("empty");
     expect(state.error).toBe("No answer");

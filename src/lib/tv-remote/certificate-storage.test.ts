@@ -3,6 +3,7 @@ import {
   getActivePairing,
   LEGACY_PAIRING_STORAGE_KEY,
   loadPairingList,
+  migratePairings,
   parseStoredPairing,
   PAIRINGS_STORAGE_KEY,
   removePairing,
@@ -107,5 +108,39 @@ describe("saved TV list storage", () => {
 
     expect(removePairing(list, mainTv.tv.host)).toEqual(emptyList);
     expect(getActivePairing(emptyList)).toBeNull();
+  });
+});
+
+describe("moving pairings into secure storage", () => {
+  it("moves the list and the legacy pairing, leaving nothing behind", () => {
+    const from = createMemoryStore();
+    const to = createMemoryStore();
+    savePairingList(from, addPairing(emptyList, mainTv));
+    from.set(LEGACY_PAIRING_STORAGE_KEY, JSON.stringify(pairing));
+
+    migratePairings(from, to);
+
+    expect(from.data.size).toBe(0);
+    expect(loadPairingList(to).pairings).toEqual([mainTv]);
+  });
+
+  it("keeps an entry already in the destination", () => {
+    const from = createMemoryStore();
+    const to = createMemoryStore();
+    savePairingList(from, addPairing(emptyList, box));
+    savePairingList(to, addPairing(emptyList, mainTv));
+
+    migratePairings(from, to);
+
+    expect(loadPairingList(to).pairings).toEqual([mainTv]);
+    expect(from.data.has(PAIRINGS_STORAGE_KEY)).toBe(false);
+  });
+
+  it("does nothing when there is nothing to move", () => {
+    const to = createMemoryStore();
+
+    migratePairings(createMemoryStore(), to);
+
+    expect(to.data.size).toBe(0);
   });
 });
